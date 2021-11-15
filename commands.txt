@@ -1,0 +1,41 @@
+----------- Run kafka -----------
+
+- start zookeeper:
+zookeeper-server-start /usr/local/etc/kafka/zookeeper.properties
+
+- start kafka:
+kafka-server-start /usr/local/etc/kafka/server.properties
+
+- create topic:
+kafka-topics --create --topic test2 --partitions 1 --replication-factor 1 --bootstrap-server localhost:9092
+
+- describe topic:
+kafka-topics --describe --topic test2 --bootstrap-server localhost:9092
+
+- produce message from csv file (igore header line):
+tail -n +2 weatherAUS.csv | kafka-console-producer --topic test2 --bootstrap-server localhost:9092
+
+- comsume message from topic:
+kafka-console-consumer --topic test2 --from-beginning --bootstrap-server localhost:9092
+
+- count message in topic:
+kafka-run-class kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic test2
+
+
+----------- Run spark streaming app -----------
+
+# Start hadoop
+# Start hbase
+# export HADOOP_CONF_DIR=/Users/xiii/Downloads/miu/hadoop-3.3.1/etc/hadoop
+
+spark-submit --class "SparkStreamingKafkaApp" --master yarn target/bdt-project-1.0-jar-with-dependencies.jar test2
+spark-submit --class "SparkSQLHBaseApp" --master yarn target/bdt-project-1.0-jar-with-dependencies.jar
+spark-submit --class "SparkSQLEsApp" --master yarn target/bdt-project-1.0-jar-with-dependencies.jar
+
+
+----------- Run Elasticsearch + Kibana -----------
+
+- start: docker-compose up -d
+- stop: docker-compose down
+
+curl -XPUT -H 'Content-Type: application/json' 'http://localhost:9200/_river/phoenix_jdbc_river/_meta' -d '{"type" : "jdbc", "jdbc" : {"url" : "jdbc:phoenix:localhost", "user" : "", "password" : "", "sql" : "select * from test.orders"}}'
