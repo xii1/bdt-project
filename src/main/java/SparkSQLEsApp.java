@@ -1,12 +1,14 @@
+import com.google.common.collect.ImmutableMap;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.SparkSession;
-import org.elasticsearch.spark.rdd.EsSpark;
+import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
 import scala.Tuple2;
 import scala.Tuple4;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * @author XIII
@@ -17,8 +19,9 @@ public class SparkSQLEsApp {
         final SparkConf sparkConf = new SparkConf();
         sparkConf.setMaster("local");
         sparkConf.setAppName("SparkSQLEsApp");
-        sparkConf.set("spark.es.nodes", "localhost");
-        sparkConf.set("spark.es.port", "9200");
+        sparkConf.set("es.nodes", "localhost");
+        sparkConf.set("es.port", "9200");
+        sparkConf.set("es.nodes.wan.only", "true");
         sparkConf.set("es.index.auto.create", "true");
 
         final JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
@@ -40,7 +43,7 @@ public class SparkSQLEsApp {
         final String sql = "select substr(d, 1, 4), location, min_temp, max_temp, rainfall from weather" +
                 " where min_temp is not NULL and max_temp is not NULL and rainfall is not NULL";
 
-        final RDD<Stats> result = sparkSession.sql(sql).javaRDD()
+        final JavaRDD<Map<Object, ?>> result = sparkSession.sql(sql).javaRDD()
                 .mapToPair(r ->
                         new Tuple2<>(
                                 new Tuple2<>(r.getString(0), r.getString(1)),
@@ -48,10 +51,10 @@ public class SparkSQLEsApp {
                         ))
                 .reduceByKey((t1, t2) -> new Tuple4<>(t1._1() + t2._1(), t1._2() + t2._2(), t1._3() + t2._3(), t1._4() + t2._4()))
                 .map(r -> new Stats(r._1._1, r._1._2, r._2._1() / r._2._4(), r._2._2() / r._2._4(), r._2._3() / r._2._4()))
-//                .mapToPair(r -> new Tuple2<>((String) r._1(), r))
-                .rdd();
+                .map(s -> ImmutableMap.of("year", s.year, "location", s.location,
+                        "avg_min_temp", s.avgMinTemp, "avg_max_temp", s.avgMaxTemp, "avg_rainfall", s.avgRainfall));
 
-        EsSpark.saveToEs(result, "test/stats");
+        JavaEsSpark.saveToEs(result, "test2/_doc");
 
         sparkSession.sql("drop table if exists weather");
 

@@ -6,20 +6,19 @@ services:
       - discovery.type=single-node
     ports:
       - 9200:9200
-      - 9300:9300
     networks:
-      - host
+      - elastic
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.15.2
     ports:
       - 5601:5601
     environment:
-      ELASTICSEARCH_URL: http://es:9200
+      xpack.maps.showMapVisualizationTypes: 'true'
+      ELASTICSEARCH_URL: 'http://es:9200'
       ELASTICSEARCH_HOSTS: '["http://es:9200"]'
     networks:
-      - host
+      - elastic
 
-#networks:
-#  host:
-#    external: true
+networks:
+  elastic:
